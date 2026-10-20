@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Mental Interactivo: Sartre & Nazismo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        serif: ['"Playfair Display"', 'serif'],
+                    },
+                    colors: {
+                        darkBg: '#0b0f19',
+                        cardBg: '#131b2e',
+                        cardBorder: '#1e293b',
+                        sartre: '#38bdf8',
+                        nazism: '#ef4444',
+                        existence: '#a855f7',
+                        freedom: '#10b981',
+                        facticity: '#f59e0b',
+                        badfaith: '#ec4899',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b0f19;
+            color: #f1f5f9;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        /* Background grid */
+        .bg-grid {
+            background-size: 30px 30px;
+            background-image: 
+                radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+        }
+
+        /* SVG Line styling */
+        .connector-line {
+            stroke-dasharray: 6, 6;
+            animation: dash 25s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -500;
+            }
+        }
+
+        .label-bg {
+            fill: #0f172a;
+            rx: 6;
+            ry: 6;
+        }
+
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .node-card {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .node-card:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 16px 35px -10px rgba(0, 0, 0, 0.7);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Pulsing node indicator */
+        .pulse-ring {
+            position: absolute;
+            border-radius: 50%;
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 0.2; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans bg-grid overflow-hidden">
+
+    <!-- Header Controls -->
+    <header class="h-16 border-b border-slate-800/80 px-6 flex items-center justify-between glass-panel z-20 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-amber-500 flex items-center justify-center text-white shadow-lg shadow-sky-500/20">
+                <i class="fa-solid fa-brain text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight tracking-wide bg-gradient-to-r from-white via-slate-200 to-sky-400 bg-clip-text text-transparent">
+                    SARTRE & EL NAZISMO
+                </h1>
+                <p class="text-xs text-slate-400">Mapa Mental Orgánico e Ilustrado • Conexiones Directas</p>
+            </div>
+        </div>
+
+        <!-- Controls Toolbar -->
+        <div class="flex items-center space-x-2">
+            <div class="relative hidden md:block">
+                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" id="searchInput" placeholder="Buscar concepto o idea..." 
+                    class="bg-slate-900/80 border border-slate-700/60 text-xs text-slate-200 pl-9 pr-4 py-2 rounded-lg focus:outline-none focus:border-sky-500 transition-all w-52 focus:w-64">
+            </div>
+
+            <div class="h-6 w-px bg-slate-800 mx-1 hidden md:block"></div>
+
+            <button id="btnZoomIn" title="Acercar" class="w-9 h-9 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center justify-center transition border border-slate-700/50">
+                <i class="fa-solid fa-plus text-sm"></i>
+            </button>
+            <button id="btnZoomOut" title="Alejar" class="w-9 h-9 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center justify-center transition border border-slate-700/50">
+                <i class="fa-solid fa-minus text-sm"></i>
+            </button>
+            <button id="btnReset" title="Centrar Mapa" class="w-9 h-9 bg-slate-800/80 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center justify-center transition border border-slate-700/50">
+                <i class="fa-solid fa-arrows-to-center text-sm"></i>
+            </button>
+            
+            <button id="btnSummary" class="px-3.5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-lg text-xs font-semibold flex items-center space-x-2 transition ml-2">
+                <i class="fa-solid fa-book-open"></i>
+                <span class="hidden sm:inline">Modo Lectura</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Canvas Viewport -->
+    <div class="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing" id="viewport">
+        <!-- SVG Connector Lines Layer -->
+        <svg id="svgConnectors" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+            <!-- Dynamic connector curves injected via JS -->
+        </svg>
+
+        <!-- World Canvas (Draggable / Zoomable) -->
+        <div id="mindmapCanvas" class="absolute top-0 left-0 w-[2000px] h-[1600px] transition-transform duration-75 origin-top-left">
+
+            <!-- CENTRAL NODE: Jean-Paul Sartre & Nazismo -->
+            <div id="node-center" data-id="center" class="absolute left-[820px] top-[620px] w-88 node-card z-20">
+                <div class="glass-panel p-5 rounded-3xl border-2 border-sky-400/60 relative overflow-hidden bg-gradient-to-b from-slate-900 via-slate-900/95 to-slate-950 shadow-2xl text-center">
+                    <div class="absolute -right-8 -bottom-8 w-32 h-32 bg-sky-500/15 rounded-full blur-2xl"></div>
+                    
+                    <!-- Sartre Vector Art -->
+                    <div class="mx-auto w-24 h-24 mb-3 relative flex items-center justify-center">
+                        <div class="pulse-ring w-20 h-20 bg-sky-500"></div>
+                        <svg class="w-24 h-24 relative z-10 drop-shadow-md" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="60" cy="60" r="54" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                            <path d="M35 45 C35 30, 85 30, 85 45 C85 38, 75 25, 60 25 C45 25, 35 35, 35 45 Z" fill="#94a3b8"/>
+                            <path d="M40 45 C40 38, 80 38, 80 45 L78 75 C78 85, 68 92, 60 92 C52 92, 42 85, 42 75 Z" fill="#f1f5f9"/>
+                            <circle cx="50" cy="54" r="10" fill="none" stroke="#0f172a" stroke-width="3.5"/>
+                            <circle cx="70" cy="54" r="10" fill="none" stroke="#0f172a" stroke-width="3.5"/>
+                            <line x1="60" y1="54" x2="60" y2="54" stroke="#0f172a" stroke-width="3"/>
+                            <line x1="40" y1="52" x2="33" y2="48" stroke="#0f172a" stroke-width="2.5"/>
+                            <line x1="80" y1="52" x2="87" y2="48" stroke="#0f172a" stroke-width="2.5"/>
+                            <circle cx="48" cy="54" r="2" fill="#0f172a"/>
+                            <circle cx="72" cy="54" r="2" fill="#0f172a"/>
+                            <path d="M60 56 L58 66 L63 66" stroke="#cbd5e1" stroke-width="2.5" stroke-linecap="round"/>
+                            <line x1="52" y1="74" x2="68" y2="74" stroke="#475569" stroke-width="2.5" stroke-linecap="round"/>
+                            <path d="M64 75 C64 82, 75 88, 85 80 L88 78" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+                            <rect x="85" y="72" width="8" height="10" rx="2" fill="#f59e0b"/>
+                            <path d="M91 70 C88 64, 95 60, 92 54" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="2 2" fill="none"/>
+                        </svg>
+                    </div>
+
+                    <span class="px-3 py-1 rounded-full text-[10px] font-extrabold tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/30 uppercase inline-block mb-1">Concepto Central</span>
+                    <h2 class="text-lg font-serif font-bold text-white leading-tight">SARTRE & EL NAZISMO</h2>
+                    <p class="text-[11px] text-slate-300 leading-snug mt-1 mb-2">
+                        Crítica existencialista a la ideología nazi, el totalitarismo y la negación de la libertad humana.
+                    </p>
+                    <button onclick="openModal('center')" class="px-3 py-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 rounded-lg text-xs font-semibold border border-sky-500/40 transition">
+                        Ver síntesis <i class="fa-solid fa-arrow-right text-[10px] ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- RAMA 1 -->
+            <div id="node-rama1" data-id="rama1" class="absolute left-[340px] top-[260px] w-72 node-card z-10">
+                <div class="glass-panel p-4 rounded-2xl border border-purple-500/50 hover:border-purple-400 bg-slate-900/90">
+                    <div class="flex items-center space-x-3 mb-2">
+                        <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-300 border border-purple-500/40 shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2a5 5 0 0 0-5 5v3a5 5 0 0 0 10 0V7a5 5 0 0 0-5-5z"/>
+                                <path d="M19 11v1a7 7 0 0 1-14 0v-1"/>
+                                <line x1="12" y1="19" x2="12" y2="23"/>
+                                <line x1="8" y1="23" x2="16" y2="23"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-purple-400 uppercase tracking-wide">Rama 1</span>
+                            <h3 class="font-bold text-sm text-purple-200 leading-tight">La Existencia precede a la Esencia</h3>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed mb-2">
+                        Nacemos libres sin un destino ni valor biológico predeterminado; nos creamos con cada elección.
+                    </p>
+                    <div class="bg-purple-950/40 p-2 rounded-lg border border-purple-500/30 text-[11px] text-purple-200 font-medium">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-400 mr-1"></i> vs. Racismo y determinismo nazi.
+                    </div>
+                    <button onclick="openModal('rama1')" class="mt-2 text-[11px] text-purple-400 hover:underline flex items-center">
+                        Detalles <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Subnodo 1.1 -->
+            <div id="node-sub1_1" data-id="sub1_1" class="absolute left-[60px] top-[140px] w-60 node-card z-10">
+                <div class="glass-panel p-3 rounded-xl border border-purple-500/30 bg-slate-900/90">
+                    <div class="flex items-center space-x-2 mb-1 text-purple-300">
+                        <i class="fa-solid fa-scissors text-xs"></i>
+                        <h4 class="font-semibold text-xs">Objeto vs. Humano</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Una tijera nace con una función prefijada. El humano primero existe y luego decide quién ser.</p>
+                </div>
+            </div>
+
+            <!-- Subnodo 1.2 -->
+            <div id="node-sub1_2" data-id="sub1_2" class="absolute left-[60px] top-[340px] w-60 node-card z-10">
+                <div class="glass-panel p-3 rounded-xl border border-red-500/40 bg-slate-900/90">
+                    <div class="flex items-center space-x-2 mb-1 text-red-300">
+                        <i class="fa-solid fa-dna text-xs"></i>
+                        <h4 class="font-semibold text-xs">Rechazo al Racismo</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Desmonta la mentira nazi de clasificar el valor moral de las personas por su sangre o raza.</p>
+                </div>
+            </div>
+
+            <!-- RAMA 2 -->
+            <div id="node-rama2" data-id="rama2" class="absolute left-[1340px] top-[260px] w-72 node-card z-10">
+                <div class="glass-panel p-4 rounded-2xl border border-emerald-500/50 hover:border-emerald-400 bg-slate-900/90">
+                    <div class="flex items-center space-x-3 mb-2">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-300 border border-emerald-500/40 shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">Rama 2</span>
+                            <h3 class="font-bold text-sm text-emerald-200 leading-tight">Condenados a ser Libres</h3>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed mb-2">
+                        Incluso en condiciones extremas o dictaduras, estamos obligados a elegir nuestras acciones.
+                    </p>
+                    <div class="bg-emerald-950/40 p-2 rounded-lg border border-emerald-500/30 text-[11px] text-emerald-200 font-medium">
+                        <i class="fa-solid fa-scale-balanced text-emerald-400 mr-1"></i> Exige responsabilidad moral individual.
+                    </div>
+                    <button onclick="openModal('rama2')" class="mt-2 text-[11px] text-emerald-400 hover:underline flex items-center">
+                        Detalles <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Subnodo 2.1 -->
+            <div id="node-sub2_1" data-id="sub2_1" class="absolute left-[1680px] top-[140px] w-60 node-card z-10">
+                <div class="glass-panel p-3 rounded-xl border border-emerald-500/30 bg-slate-900/90">
+                    <div class="flex items-center space-x-2 mb-1 text-emerald-300">
+                        <i class="fa-solid fa-brain text-xs"></i>
+                        <h4 class="font-semibold text-xs">La Angustia (L'angoisse)</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-400">El vértigo de saber que tus acciones definen tu ética y no puedes culpar a otros.</p>
+                </div>
+            </div>
+
+            <!-- Subnodo 2.2 -->
+            <div id="node-sub2_2" data-id="sub2_2" class="absolute left-[1680px] top-[340px] w-60 node-card z-10">
+                <div class="glass-panel p-3 rounded-xl border border-emerald-500/30 bg-slate-900/90">
+                    <div class="flex items-center space-x-2 mb-1 text-emerald-300">
+                        <i class="fa-solid fa-user-check text-xs"></i>
+                        <h4 class="font-semibold text-xs">Juicio a la Obediencia</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Obedecer a una autoridad criminal como el Nazismo es una decisión moral activa.</p>
+                </div>
+            </div>
+
+            <!-- RAMA 3 -->
+            <div id="node-rama3" data-id="rama3" class="absolute left-[340px] top-[980px] w-72 node-card z-10">
+                <div class="glass-panel p-4 rounded-2xl border border-amber-500/50 hover:border-amber-400 bg-slate-900/90">
+                    <div class="flex items-center space-x-3 mb-2">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-300 border border-amber-500/40 shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-amber-400 uppercase tracking-wide">Rama 3</span>
+                            <h3 class="font-bold text-sm text-amber-200 leading-tight">Facticidad vs. Libertad</h3>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed mb-2">
+                        "Somos lo que hacemos con lo que hicieron de nosotros". El contexto condiciona, pero no determina.
+                    </p>
+                    <div class="bg-amber-950/40 p-2 rounded-lg border border-amber-500/30 text-[11px] text-amber-200 font-medium">
+                        <i class="fa-solid fa-bullhorn text-amber-400 mr-1"></i> Censura, terror y propaganda nazi.
+                    </div>
+                    <button onclick="openModal('rama3')" class="mt-2 text-[11px] text-amber-400 hover:underline flex items-center">
+                        Detalles <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Subnodo 3.1 -->
+            <div id="node-sub3_1" data-id="sub3_1" class="absolute left-[60px] top-[880px] w-60 node-card z-10">
+                <div class="glass-panel p-3 rounded-xl border border-amber-500/30 bg-slate-900/90">
+                    <div class="flex items-center space-x-2 mb-1 text-amber-300">
+                        <i class="fa-solid fa-newspaper text-xs"></i>
+                        <h4 class="font-semibold text-xs">Condicionamiento Social</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Educación e indoctrinación desde niños creó un entorno social extremadamente asfixiante.</p>
+                </div>
+            </div>
+
+            <!-- Subnodo 3.2 -->
+            <div id="node-sub3_2" data-id="sub3_2" class="absolute left-[60px] top-[1080px] w-60 node-card z-10">
+                <div class="glass-panel p-3 rounded-xl border border-sky-500/30 bg-slate-900/90">
+                    <div class="flex items-center space-x-2 mb-1 text-sky-300">
+                        <i class="fa-solid fa-person-walking-arrow-right text-xs"></i>
+                        <h4 class="font-semibold text-xs">Elección de Resistir</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-400">A pesar de la dictadura, el sujeto podía optar por la disidencia, el silencio o la complicidad.</p>
+                </div>
+            </div>
+
+            <!-- RAMA 4 -->
+            <div id="node-rama4" data-id="rama4" class="absolute left-[1340px] top-[980px] w-72 node-card z-10">
+                <div class="glass-panel p-4 rounded-2xl border border-pink-500/50 hover:border-pink-400 bg-slate-900/90">
+                    <div class="flex items-center space-x-3 mb-2">
+                        <div class="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center text-pink-300 border border-pink-500/40 shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M8 15s1.5 2 4 2 4-2 4-2"/>
+                                <line x1="9" y1="9" x2="9.01" y2="9"/>
+                                <line x1="15" y1="9" x2="15.01" y2="9"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-bold text-pink-400 uppercase tracking-wide">Rama 4</span>
+                            <h3 class="font-bold text-sm text-pink-200 leading-tight">La Mala Fe (Autoengaño)</h3>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed mb-2">
+                        Actitud de mentirse a uno mismo negando la libertad propia para librarse de la culpa.
+                    </p>
+                    <div class="bg-pink-950/40 p-2 rounded-lg border border-pink-500/30 text-[11px] text-pink-200 font-medium">
+                        <i class="fa-solid fa-gavel text-pink-400 mr-1"></i> La excusa de "solo obedecía órdenes".
+                    </div>
+                    <button onclick="openModal('rama4')" class="mt-2 text-[11px] text-pink-400 hover:underline flex items-center">
+                        Detalles <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Subnodo 4.1 -->
+            <div id="node-sub4_1" data-id="sub4_1" class="absolute left-[1680px] top-[880px] w-60 node-card z-10">
+                <div class="glass-panel p-3 rounded-xl border border-pink-500/30 bg-slate-900/90">
+                    <div class="flex items-center space-x-2 mb-1 text-pink-300">
+                        <i class="fa-solid fa-robot text-xs"></i>
+                        <h4 class="font-semibold text-xs">Creerse un Engranaje</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Actuar como si fuera una marioneta sin capacidad moral para lavarse las manos.</p>
+                </div>
+            </div>
+
+            <!-- Subnodo 4.2 -->
+            <div id="node-sub4_2" data-id="sub4_2" class="absolute left-[1680px] top-[1080px] w-60 node-card z-10">
+                <div class="glass-panel p-3 rounded-xl border border-amber-500/30 bg-slate-900/90">
+                    <div class="flex items-center space-x-2 mb-1 text-amber-300">
+                        <i class="fa-solid fa-gavel text-xs"></i>
+                        <h4 class="font-semibold text-xs">La "Defensa Eichmann"</h4>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Escudarse en el deber burocrático para ejecutar atrocidades y genocidios.</p>
+                </div>
+            </div>
+
+            <!-- RAMA 5 -->
+            <div id="node-rama5" data-id="rama5" class="absolute left-[820px] top-[1060px] w-88 node-card z-10">
+                <div class="glass-panel p-4 rounded-2xl border border-sky-400/50 hover:border-sky-300 bg-slate-900/95 text-center">
+                    <div class="flex items-center justify-center space-x-3 mb-2">
+                        <div class="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center text-sky-300 border border-sky-500/40 shrink-0">
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                            </svg>
+                        </div>
+                        <div class="text-left">
+                            <span class="text-[10px] font-bold text-sky-400 uppercase tracking-wide">Rama 5 • Vivencia Real</span>
+                            <h3 class="font-bold text-sm text-sky-200 leading-tight">Experiencia de Sartre (1939-1945)</h3>
+                        </div>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed mb-2">
+                        Prisionero en el campo Stalag XII-D (9 meses). Tras ser liberado, fundó el grupo de resistencia <span class="text-sky-300 font-semibold">"Socialisme et Liberté"</span>.
+                    </p>
+                    <div class="bg-slate-950/60 p-2 rounded-lg border border-slate-800 text-[11px] text-slate-400 text-left">
+                        <i class="fa-solid fa-theater-masks text-sky-400 mr-1"></i> Escribió obras clandestinas de teatro en prisión para inspirar libertad.
+                    </div>
+                    <button onclick="openModal('rama5')" class="mt-2 text-[11px] text-sky-400 hover:underline inline-flex items-center">
+                        Ver biografía y contexto <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="modalOverlay" class="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 p-4">
+        <div id="modalContent" class="bg-cardBg border border-slate-700/80 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300 flex flex-col max-h-[90vh]">
+            <div id="modalHeader" class="p-5 border-b border-slate-800 flex items-center justify-between relative">
+                <div class="flex items-center space-x-3">
+                    <div id="modalIcon" class="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 text-lg">
+                        <i class="fa-solid fa-book"></i>
+                    </div>
+                    <div>
+                        <span id="modalTag" class="text-[10px] font-bold uppercase tracking-wider text-sky-400 px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20">Categoría</span>
+                        <h3 id="modalTitle" class="text-xl font-bold text-white font-serif mt-0.5">Título del Nodo</h3>
+                    </div>
+                </div>
+                <button id="closeModal" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-4 text-slate-300 text-sm leading-relaxed" id="modalBody"></div>
+
+            <div class="p-4 border-t border-slate-800/80 bg-slate-950/60 flex justify-end">
+                <button id="closeModalBtn" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs rounded-lg transition">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reading Mode Drawer -->
+    <div id="summaryDrawer" class="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-slate-900/95 backdrop-blur-xl border-l border-slate-800 z-40 transform translate-x-full transition-transform duration-300 flex flex-col shadow-2xl">
+        <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+            <div class="flex items-center space-x-2 text-sky-400 font-bold">
+                <i class="fa-solid fa-book-open text-lg"></i>
+                <span class="text-sm tracking-wide">SÍNTESIS COMPLETA DEL MAPA</span>
+            </div>
+            <button id="closeDrawer" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto flex-1 space-y-6 text-slate-300 text-xs leading-relaxed">
+            <div class="p-4 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-200">
+                <h4 class="font-bold text-sm mb-1 text-white">¿Por qué conectar a Sartre con el Nazismo?</h4>
+                <p>Las ideas existencialistas de Sartre nos brindan una potente herramienta filosófica para desmontar la ideología nazi, la discriminación racial y las excusas de obediencia ciega.</p>
+            </div>
+
+            <div class="space-y-4">
+                <div class="border-l-2 border-purple-500 pl-3">
+                    <h5 class="font-bold text-purple-300 text-sm">1. La existencia precede a la esencia</h5>
+                    <p class="mt-1 text-slate-400">El nazismo catalogaba a las personas por su "sangre" o raza. Sartre prueba que nacemos libres sin esencia previa y nos construimos con actos.</p>
+                </div>
+
+                <div class="border-l-2 border-emerald-500 pl-3">
+                    <h5 class="font-bold text-emerald-300 text-sm">2. Condenados a ser libres</h5>
+                    <p class="mt-1 text-slate-400">En una dictadura, incluso la obediencia o el silencio son elecciones libres que implican plena responsabilidad moral.</p>
+                </div>
+
+                <div class="border-l-2 border-amber-500 pl-3">
+                    <h5 class="font-bold text-amber-300 text-sm">3. Facticidad vs. Libertad</h5>
+                    <p class="mt-1 text-slate-400">La propaganda y el terror nazi influyen y condicionan, pero nunca eliminan por completo la opción de elegir o resistir.</p>
+                </div>
+
+                <div class="border-l-2 border-pink-500 pl-3">
+                    <h5 class="font-bold text-pink-300 text-sm">4. La Mala Fe</h5>
+                    <p class="mt-1 text-slate-400">Escudarse en "yo solo cumplía órdenes" para evitar el juicio ético es la máxima expresión de autoengaño o mala fe.</p>
+                </div>
+
+                <div class="border-l-2 border-sky-500 pl-3">
+                    <h5 class="font-bold text-sky-300 text-sm">5. Experiencia Vital</h5>
+                    <p class="mt-1 text-slate-400">Sartre sufrió en carne propia la opresión nazi como prisionero de guerra y luchó en la Resistencia Francesa.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nodeData = {
+            center: {
+                title: "Jean-Paul Sartre y la Filosofía del Nazismo",
+                category: "Eje Temático Central",
+                icon: "fa-brain",
+                color: "sky",
+                content: `
+                    <p class="text-slate-200 font-medium">Jean-Paul Sartre (1905-1980) fue una de las mentes más destacadas del existencialismo. Su filosofía defiende la dignidad e inalienable libertad individual frente a regímenes destructivos como el Nazismo.</p>
+                    
+                    <div class="my-4 p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                        <h5 class="text-xs font-bold text-sky-400 uppercase tracking-wider">¿Qué fue el Nazismo?</h5>
+                        <p class="text-xs text-slate-400">El régimen nazi (1933-1945) impuso una dictadura totalitaria basada en el racismo, la propaganda, la persecución y el Holocausto, intentando definir el valor del ser humano por biología.</p>
+                    </div>
+
+                    <h4 class="font-bold text-white text-base mt-4">La Respuesta Existencialista</h4>
+                    <p class="text-xs text-slate-300">Sartre demuestra que ninguna ideología o Estado puede arrebatar la capacidad humana de pensar y elegir su camino moral.</p>
+                `
+            },
+            rama1: {
+                title: "La Existencia Precede a la Esencia",
+                category: "Principio Existencialista #1",
+                icon: "fa-fingerprint",
+                color: "purple",
+                content: `
+                    <p>El ser humano primero existe y luego se construye mediante sus acciones. No venimos con un 'molde' o destino predeterminado.</p>
+                    <div class="my-3 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg text-xs text-purple-200">
+                        <strong>Relación con el Nazismo:</strong> Desmonta el mito de la 'raza superior' o de identidades fijas impuestas por la genética.
+                    </div>
+                `
+            },
+            rama2: {
+                title: "Condenados a ser Libres",
+                category: "Principio Existencialista #2",
+                icon: "fa-key",
+                color: "emerald",
+                content: `
+                    <p>Incluso bajo coacción o en guerras, estamos obligados a tomar decisiones. El silencio ante el crimen sigue siendo una elección.</p>
+                    <div class="my-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs text-emerald-200">
+                        <strong>Relación con el Nazismo:</strong> Cuestiona la disculpa de la obediencia ciega a autoridades dictatoriales.
+                    </div>
+                `
+            },
+            rama3: {
+                title: "Facticidad y Condicionamiento Social",
+                category: "Principio Existencialista #3",
+                icon: "fa-bullhorn",
+                color: "amber",
+                content: `
+                    <p>La facticidad es lo no elegido (época, propaganda, guerras). Sin embargo, el contexto condiciona pero nunca determina totalmente nuestras acciones.</p>
+                `
+            },
+            rama4: {
+                title: "La Mala Fe (Mauvaise Foi)",
+                category: "Principio Existencialista #4",
+                icon: "fa-masks-theater",
+                color: "pink",
+                content: `
+                    <p>Es el autoengaño deliberado para evitar la responsabilidad de nuestras decisiones. Afirmar "sólo era un engranaje y cumplía órdenes" es el ejemplo más claro.</p>
+                `
+            },
+            rama5: {
+                title: "Sartre en la Segunda Guerra Mundial",
+                category: "Contexto Histórico Vital",
+                icon: "fa-shield-halved",
+                color: "sky",
+                content: `
+                    <p>Sartre fue prisionero de guerra en 1940 y luego activista clandestino en la Resistencia Francesa con su grupo "Socialisme et Liberté". Sus teorías nacen de la vivencia directa de la opresión.</p>
+                `
+            }
+        };
+
+        const viewport = document.getElementById('viewport');
+        const canvas = document.getElementById('mindmapCanvas');
+        const svgConnectors = document.getElementById('svgConnectors');
+        const searchInput = document.getElementById('searchInput');
+
+        let scale = 0.55;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let startX, startY;
+
+        function centerMap() {
+            const vpWidth = viewport.clientWidth || window.innerWidth;
+            const vpHeight = viewport.clientHeight || window.innerHeight;
+            
+            scale = Math.min(Math.max(vpWidth / 2200, 0.45), 0.75);
+            panX = (vpWidth / 2) - (1000 * scale);
+            panY = (vpHeight / 2) - (720 * scale);
+            updateTransform();
+        }
+
+        const connections = [
+            { from: 'center', to: 'rama1', color: '#a855f7', label: 'Cuestiona identidad racial' },
+            { from: 'center', to: 'rama2', color: '#10b981', label: 'Exige responsabilidad' },
+            { from: 'center', to: 'rama3', color: '#f59e0b', label: 'Condiciona pero no determina' },
+            { from: 'center', to: 'rama4', color: '#ec4899', label: 'Desmonta el autoengaño' },
+            { from: 'center', to: 'rama5', color: '#38bdf8', label: 'Vivencia e historia real' },
+            
+            { from: 'rama1', to: 'sub1_1', color: '#a855f7', label: '' },
+            { from: 'rama1', to: 'sub1_2', color: '#ef4444', label: '' },
+            { from: 'rama2', to: 'sub2_1', color: '#10b981', label: '' },
+            { from: 'rama2', to: 'sub2_2', color: '#10b981', label: '' },
+            { from: 'rama3', to: 'sub3_1', color: '#f59e0b', label: '' },
+            { from: 'rama3', to: 'sub3_2', color: '#38bdf8', label: '' },
+            { from: 'rama4', to: 'sub4_1', color: '#ec4899', label: '' },
+            { from: 'rama4', to: 'sub4_2', color: '#f59e0b', label: '' },
+        ];
+
+        function updateTransform() {
+            canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            drawConnections();
+        }
+
+        function getElementCenter(id) {
+            const el = document.getElementById(`node-${id}`);
+            if (!el) return { x: 0, y: 0 };
+            const left = parseFloat(el.style.left);
+            const top = parseFloat(el.style.top);
+            const width = el.offsetWidth;
+            const height = el.offsetHeight;
+            return { x: left + width / 2, y: top + height / 2 };
+        }
+
+        function drawConnections() {
+            let svgHtml = '';
+            
+            connections.forEach(conn => {
+                const start = getElementCenter(conn.from);
+                const end = getElementCenter(conn.to);
+
+                const startX = start.x * scale + panX;
+                const startY = start.y * scale + panY;
+                const endX = end.x * scale + panX;
+                const endY = end.y * scale + panY;
+
+                const dx = endX - startX;
+                const dy = endY - startY;
+                const cx1 = startX + dx * 0.5;
+                const cy1 = startY;
+                const cx2 = startX + dx * 0.5;
+                const cy2 = endY;
+
+                const pathData = `M ${startX} ${startY} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${endX} ${endY}`;
+                
+                svgHtml += `
+                    <path d="${pathData}" 
+                          fill="none" 
+                          stroke="${conn.color}" 
+                          stroke-width="3" 
+                          stroke-opacity="0.65" 
+                          class="connector-line" />
+                `;
+
+                if (conn.label) {
+                    const midX = (startX + endX) / 2;
+                    const midY = (startY + endY) / 2;
+                    const textWidth = conn.label.length * 6.5 + 16;
+
+                    svgHtml += `
+                        <g transform="translate(${midX}, ${midY})">
+                            <rect x="-${textWidth/2}" y="-10" width="${textWidth}" height="20" class="label-bg" stroke="${conn.color}" stroke-width="1" opacity="0.9"/>
+                            <text x="0" y="3" fill="#e2e8f0" font-size="10" font-family="sans-serif" font-weight="600" text-anchor="middle">${conn.label}</text>
+                        </g>
+                    `;
+                }
+            });
+
+            svgConnectors.innerHTML = svgHtml;
+        }
+
+        viewport.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.node-card') || e.target.closest('button') || e.target.closest('input')) return;
+            isDragging = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+            viewport.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            viewport.style.cursor = 'grab';
+        });
+
+        viewport.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
+            const newScale = scale * zoomFactor;
+
+            if (newScale >= 0.3 && newScale <= 1.8) {
+                const rect = viewport.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                panX = mouseX - (mouseX - panX) * zoomFactor;
+                panY = mouseY - (mouseY - panY) * zoomFactor;
+                scale = newScale;
+                updateTransform();
+            }
+        }, { passive: false });
+
+        document.getElementById('btnZoomIn').onclick = () => { scale = Math.min(scale * 1.2, 1.8); updateTransform(); };
+        document.getElementById('btnZoomOut').onclick = () => { scale = Math.max(scale / 1.2, 0.3); updateTransform(); };
+        document.getElementById('btnReset').onclick = () => { centerMap(); };
+
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalContent = document.getElementById('modalContent');
+
+        window.openModal = function(key) {
+            const data = nodeData[key];
+            if (!data) return;
+
+            document.getElementById('modalTitle').textContent = data.title;
+            document.getElementById('modalTag').textContent = data.category;
+            document.getElementById('modalIcon').className = `w-10 h-10 rounded-xl bg-${data.color}-500/20 border border-${data.color}-500/30 flex items-center justify-center text-${data.color}-400 text-lg`;
+            document.getElementById('modalIcon').innerHTML = `<i class="fa-solid ${data.icon}"></i>`;
+            document.getElementById('modalBody').innerHTML = data.content;
+
+            modalOverlay.classList.remove('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-95');
+            modalContent.classList.add('scale-100');
+        };
+
+        function closeModal() {
+            modalOverlay.classList.add('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-100');
+            modalContent.classList.add('scale-95');
+        }
+
+        document.getElementById('closeModal').onclick = closeModal;
+        document.getElementById('closeModalBtn').onclick = closeModal;
+        modalOverlay.onclick = (e) => { if (e.target === modalOverlay) closeModal(); };
+
+        const summaryDrawer = document.getElementById('summaryDrawer');
+        document.getElementById('btnSummary').onclick = () => { summaryDrawer.classList.remove('translate-x-full'); };
+        document.getElementById('closeDrawer').onclick = () => { summaryDrawer.classList.add('translate-x-full'); };
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            document.querySelectorAll('.node-card').forEach(card => {
+                const text = card.textContent.toLowerCase();
+                if (!query || text.includes(query)) {
+                    card.style.opacity = '1';
+                    card.style.filter = 'none';
+                } else {
+                    card.style.opacity = '0.2';
+                    card.style.filter = 'grayscale(1)';
+                }
+            });
+        });
+
+        window.onload = () => {
+            centerMap();
+            setTimeout(drawConnections, 100);
+        };
+
+        window.onresize = () => {
+            centerMap();
+        };
+    </script>
+</body>
+</html>
